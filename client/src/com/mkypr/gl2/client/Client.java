@@ -4,67 +4,85 @@ import com.mkypr.gl2.middleware.Constants;
 
 import javax.swing.*;
 import java.awt.*;
-import java.awt.desktop.SystemSleepEvent;
 import java.awt.event.*;
-import java.security.Key;
-import java.util.*;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.LinkedList;
 
 public class Client {
+    private final static String MENUPANEL = "menu";
+    private final static String GAMEPANEL = "game";
+    private final static String SETTINGSPANEL = "settings";
 
-    final static String MENUPANEL = "menu";
-    final static String GAMEPANEL = "game";
-    final static String SETTINGSPANEL = "settings";
+    public final static LinkedHashMap<String, JComponent> cards = new LinkedHashMap<>();
+    public final static LinkedList<String> navigationHistory = new LinkedList<>(Collections.singleton(MENUPANEL));
+    public final static Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
 
-    final static LinkedHashMap<String, ActionListener> builder = new LinkedHashMap<>();
-    final static LinkedList<String> navigationHistory = new LinkedList<>(Collections.singleton(MENUPANEL));
-
-    static JFrame mainFrame;
-    static JPanel buttons;
-    static JPanel cards;
-    static Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
-    static JPanel menu;
+    private static JFrame mainFrame;
+    private static JPanel btnPanel;
+    private static JPanel cardPanel;
 
     public static void main(String[] args) {
         SwingUtilities.invokeLater(Client::start);
     }
 
-    public static void updateSize(Dimension dim) {
+    public static void updateSize() {
+        Dimension dim = (Dimension) Settings.getValue("maindim");
         mainFrame.setPreferredSize(dim);
         mainFrame.setBounds((screenSize.width - dim.width) / 2, (screenSize.height - dim.height) / 2, dim.width, dim.height);
-        buttons.setPreferredSize(new Dimension(dim.width / 5, dim.height / 3));
-        for (Component c : buttons.getComponents()) {
-            c.setMaximumSize(new Dimension(buttons.getPreferredSize().width, buttons.getPreferredSize().height / builder.size()));
+        btnPanel.setPreferredSize(new Dimension(dim.width / 5, dim.height / 3));
+        for (Component c : btnPanel.getComponents()) {
+            c.setMaximumSize(new Dimension(btnPanel.getPreferredSize().width, btnPanel.getPreferredSize().height / btnPanel.getComponents().length));
         }
-        buttons.setBounds((dim.width - buttons.getPreferredSize().width) / 2, (dim.height - buttons.getPreferredSize().height) / 2, buttons.getPreferredSize().width, buttons.getPreferredSize().height);
-        cards.setPreferredSize(dim);
+        btnPanel.setBounds((dim.width - btnPanel.getPreferredSize().width) / 2, (dim.height - btnPanel.getPreferredSize().height) / 2, btnPanel.getPreferredSize().width, btnPanel.getPreferredSize().height);
+        cardPanel.setPreferredSize(dim);
 
         mainFrame.pack();
-        mainFrame.repaint();
     }
 
     public static void updateColor() {
-        mainFrame.getContentPane().setBackground(Constants.mainColor);
-        menu.setBackground(Constants.mainColor);
-        buttons.setBackground(Constants.mainColor);
-        for (Component c : buttons.getComponents()) {
-            c.setBackground(Constants.mainColor);
+        Color color = (Color) Settings.getValue("maincol");
+        mainFrame.getContentPane().setBackground(color);
+        btnPanel.setBackground(color);
+        for (Component c : btnPanel.getComponents()) {
+            c.setBackground(color);
         }
-        mainFrame.repaint();
+        for (JComponent c : cards.values()) {
+            c.setBackground(color);
+        }
     }
 
     public static void navigateTo(String s) {
-        CardLayout cl = (CardLayout) (cards.getLayout());
+        CardLayout cl = (CardLayout) (cardPanel.getLayout());
         navigationHistory.add(s);
-        cl.show(cards, s);
+        cl.show(cardPanel, s);
     }
 
-    public static void navigateBack() {
-        CardLayout cl = (CardLayout) (cards.getLayout());
-        navigationHistory.removeLast();
-        cl.show(cards, navigationHistory.getLast());
+    public static boolean navigateBack() {
+        try {
+            CardLayout cl = (CardLayout) (cardPanel.getLayout());
+            if (navigationHistory.size() > 1) {
+                navigationHistory.removeLast();
+                cl.show(cardPanel, navigationHistory.getLast());
+                return true;
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return false;
     }
 
     static void start() {
+        Settings.addSetting("maindim", new Dimension(1400, 900));
+        Settings.addSetting("maincol", new Color(96, 197, 209));
+        Settings.addSetting("keybinds", new Settings.Keybind[]{
+                new Settings.Keybind(() -> {
+                    System.exit(0);
+                    return true;
+                }, KeyEvent.VK_Q),
+                new Settings.Keybind(Client::navigateBack, KeyEvent.VK_R)
+        });
+
         mainFrame = new JFrame();
         mainFrame.setTitle("GameClient");
         mainFrame.setFocusable(true);
@@ -73,31 +91,27 @@ public class Client {
         mainFrame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         mainFrame.setLocationByPlatform(true);
 
+        LinkedHashMap<String, ActionListener> builder = new LinkedHashMap<>();
         builder.put("games", actionEvent -> {
-            System.out.println("Clicked games");
             navigateTo(GAMEPANEL);
         });
         builder.put("settings", actionEvent -> {
-            System.out.println("Clicked settings");
             navigateTo(SETTINGSPANEL);
         });
         builder.put("quit", actionEvent -> System.exit(0));
 
-        menu = new JPanel();
+        JPanel menu = new JPanel();
         menu.setFocusable(false);
         menu.setLayout(null);
-//        menu.setBackground(Constants.mainColor);
-        buttons = new JPanel();
-        buttons.setFocusable(false);
-//        buttons.setBackground(Constants.mainColor);
-        buttons.setLayout(new BoxLayout(buttons, BoxLayout.Y_AXIS));
+        btnPanel = new JPanel();
+        btnPanel.setFocusable(false);
+        btnPanel.setLayout(new BoxLayout(btnPanel, BoxLayout.Y_AXIS));
         for (String s : builder.keySet()) {
             JButton b = new JButton(s);
             b.setFocusable(false);
             b.setFont(Constants.bigFont);
             b.setAlignmentX(Component.CENTER_ALIGNMENT);
             b.setBorderPainted(false);
-//            b.setBackground(Constants.mainColor);
             b.addActionListener(builder.get(s));
             b.addMouseListener(new MouseListener() {
                 @Override
@@ -117,28 +131,28 @@ public class Client {
 
                 @Override
                 public void mouseEntered(MouseEvent mouseEvent) {
-                    b.setBackground(Constants.mainColor.brighter());
+                    b.setBackground(((Color) Settings.getValue("maincol")).brighter());
                     b.repaint();
                 }
 
                 @Override
                 public void mouseExited(MouseEvent mouseEvent) {
-                    b.setBackground(Constants.mainColor);
+                    b.setBackground(((Color) Settings.getValue("maincol")));
                     b.repaint();
                 }
             });
-            buttons.add(b);
+            btnPanel.add(b);
         }
+        menu.add(btnPanel);
 
-        menu.add(buttons);
+        cardPanel = new JPanel(new CardLayout());
+        cardPanel.setFocusable(false);
+        cards.put(MENUPANEL, menu);
+        cards.put(GAMEPANEL, new GamePane());
+        cards.put(SETTINGSPANEL, new SettingsPane());
+        for (String k : cards.keySet()) cardPanel.add(cards.get(k), k);
 
-        cards = new JPanel(new CardLayout());
-        cards.setFocusable(false);
-        cards.add(menu, MENUPANEL);
-        cards.add(new GamePane(), GAMEPANEL);
-        cards.add(new SettingsPane(), SETTINGSPANEL);
-
-        mainFrame.getContentPane().add(cards);
+        mainFrame.getContentPane().add(cardPanel);
 
         mainFrame.addKeyListener(new KeyListener() {
             @Override
@@ -148,10 +162,14 @@ public class Client {
 
             @Override
             public void keyPressed(KeyEvent keyEvent) {
-                if (keyEvent.getKeyCode() == KeyEvent.VK_Q) {
-                    System.exit(0);
-                } else if (keyEvent.getKeyCode() == KeyEvent.VK_R) {
-                    navigateBack();
+                for (Settings.Keybind keybind : (Settings.Keybind[]) Settings.getValue("keybinds")) {
+                    if (keyEvent.getKeyCode() == keybind.key) {
+                        try {
+                            if (keybind.action.call()) return;
+                        } catch (Exception e) {
+                            e.printStackTrace();
+                        }
+                    }
                 }
             }
 
@@ -161,9 +179,8 @@ public class Client {
             }
         });
 
-//        mainFrame.pack();
-        updateSize(new Dimension(1400, 900));
-        updateColor();
+        Client.updateSize();
+        Client.updateColor();
 
         mainFrame.setVisible(true);
     }

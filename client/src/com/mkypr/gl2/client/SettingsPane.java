@@ -4,71 +4,53 @@ import com.mkypr.gl2.middleware.Constants;
 
 import javax.swing.*;
 import java.awt.*;
-import java.util.LinkedHashMap;
 
 public class SettingsPane extends JPanel {
 
-    static class Resolution extends Dimension {
-        public Resolution(int width, int height) {
-            super(width, height);
-        }
-
-        @Override
-        public String toString() {
-            return String.format("%dx%d", width, height);
-        }
-    }
-
-    static class Keybind {
-        String action;
-        String k;
-
-        public Keybind(String action, String k) {
-            this.action = action;
-            this.k = k;
-        }
-    }
-
-    static Resolution[] resolutions = new Resolution[]{
-            new Resolution(1900, 1080),
-            new Resolution(1400, 900),
-            new Resolution(1200, 800)
-    };
-    static JComboBox<Dimension> resolutionBox = new JComboBox<>(resolutions);
-    static Keybind[] keybinds = new Keybind[]{
-            new Keybind("Quit", "Q"),
-            new Keybind("Navigate Back", "R")
-    };
-
+    static JComboBox<Settings.Resolution> resolutionBox;
 
     public SettingsPane() {
         setFocusable(false);
         setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
-        setBackground(Constants.mainColor);
+        setBackground((Color) Settings.getValue("maincol"));
 
-        LinkedHashMap<String, JComponent> settingsBuilder = new LinkedHashMap<>();
+        Settings.addSetting("resolutions", new Settings.Resolution[]{
+                new Settings.Resolution(1900, 1080),
+                new Settings.Resolution(1400, 900),
+                new Settings.Resolution(1200, 800)
+        });
+
         FlowLayout flowLayout = new FlowLayout();
         flowLayout.setVgap(0);
+        flowLayout.setHgap(0);
+        flowLayout.setAlignment(FlowLayout.LEFT);
+        Settings.Resolution[] resolutions = (Settings.Resolution[]) Settings.getValue("resolutions");
         resolutionBox = new JComboBox<>(resolutions);
         resolutionBox.setFont(Constants.smallFont);
         resolutionBox.setPreferredSize(new Dimension(400, 40));
-        settingsBuilder.put("Resolution", resolutionBox);
+        Settings.setComponent("resolutions", resolutionBox);
+//        Settings.setDimension("resolutions", new Dimension(resolutionBox.getPreferredSize().width, resolutionBox.getPreferredSize().height * resolutions.length));
 
-        for (String k : settingsBuilder.keySet()) {
-            JLabel label = new JLabel(k + ": ");
-            label.setFocusable(false);
-            label.setFont(Constants.smallFont);
-            label.setPreferredSize(new Dimension(400, 40));
-            JComponent comp = settingsBuilder.get(k);
-            comp.setFocusable(false);
+        for (String k : Settings.allSettings().keySet()) {
+            Settings.Setting setting = Settings.allSettings().get(k);
+            if (setting.component == null) continue;
             JPanel settingsItem = new JPanel();
             settingsItem.setFocusable(false);
             settingsItem.setAlignmentX(Component.CENTER_ALIGNMENT);
             settingsItem.setLayout(flowLayout);
-            settingsItem.setMaximumSize(new Dimension(label.getPreferredSize().width + comp.getPreferredSize().width + 40, comp.getPreferredSize().height));
-            settingsItem.add(label);
-            settingsItem.add(comp);
 
+            JLabel nameLabel = new JLabel(setting.name);
+            nameLabel.setFocusable(false);
+            nameLabel.setFont(Constants.smallFont);
+            nameLabel.setMaximumSize(new Dimension(300, 40));
+            nameLabel.setMinimumSize(nameLabel.getMaximumSize());
+            nameLabel.setPreferredSize(nameLabel.getMaximumSize());
+            settingsItem.add(nameLabel);
+
+            settingsItem.setMaximumSize(new Dimension(nameLabel.getMaximumSize().width + setting.dimension.width, setting.dimension.height));
+
+            setting.component.setFocusable(false);
+            settingsItem.add(setting.component);
             add(settingsItem);
         }
 
@@ -77,9 +59,19 @@ public class SettingsPane extends JPanel {
         applyButton.setFont(Constants.smallFont);
         applyButton.setPreferredSize(new Dimension(250, 40));
         applyButton.addActionListener(actionEvent -> {
-            System.out.println("Updating settings!");
-            setBackground(Constants.mainColor);
-            Client.updateSize((Dimension) resolutionBox.getSelectedItem());
+            Settings.setValue("maindim", resolutionBox.getSelectedItem());
+            for (String k : Settings.allSettings().keySet()) {
+                Settings.Setting setting = Settings.allSettings().get(k);
+                if (setting.component != null && setting.valueGetter != null) {
+                    try {
+                        Settings.setValue(k, setting.valueGetter.call());
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+            }
+            Client.updateSize();
+            Client.navigateBack();
         });
         add(applyButton);
     }
