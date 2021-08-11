@@ -20,7 +20,8 @@ public class GamePane extends JLayeredPane {
     boolean rotate = false;
     GameState gameState;
 
-    BufferedImage bigShip;
+    BufferedImage[] shipsImg;
+    BufferedImage markedOverlay;
     int[] cPlayer1Tile = new int[]{-1, -1};
     int[] cPlayer2Tile = new int[]{-1, -1};
 
@@ -49,6 +50,7 @@ public class GamePane extends JLayeredPane {
         int y;
         boolean r;
         boolean[] h; // health
+        boolean marked;
 
         protected Ship(int x, int y, boolean r, boolean[] h) {
             this.x = x;
@@ -61,32 +63,33 @@ public class GamePane extends JLayeredPane {
             return new Ship(x, y, rotation, new boolean[length]);
         }
 
-        public static ArrayList<int[]> collisions(Ship ship1, Ship ship2) {
-            ArrayList<int[]> collisions = new ArrayList<>();
-            int[][] tiles = new int[ship1.h.length][2];
-            HashSet<int[]> tmp = new HashSet<>();
-            int a = ship1.y;
-            int b = ship1.x;
-            if (ship1.r) {
-                a = ship1.x;
-                b = ship1.y;
+        public int length() {
+            return this.h.length;
+        }
+
+        public int[][] tiles() {
+            int[][] tiles;
+            int a;
+            int b;
+            int ia;
+            int ib;
+            if (!r) {
+                a = y;
+                b = x;
+                ia = 1;
+                ib = 0;
+            } else {
+                a = x;
+                b = y;
+                ia = 0;
+                ib = 1;
             }
-            for (int i = 0; i < ship1.h.length; i++) {
-                tiles[i][0] = b;
-                tiles[i][1] = a + i;
+            tiles = new int[length()][2];
+            for (int i = 0; i < length(); i++) {
+                tiles[i][ia] = a + i;
+                tiles[i][ib] = b;
             }
-            Collections.addAll(tmp, tiles);
-            tiles = new int[ship1.h.length][2];
-            for (int i = 0; i < ship2.h.length; i++) {
-                tiles[i][0] = b;
-                tiles[i][1] = a + i;
-            }
-            for (int[] t : tiles) {
-                if (tmp.contains(t)) {
-                    collisions.add(t);
-                }
-            }
-            return collisions;
+            return tiles;
         }
 
         @Override
@@ -167,16 +170,38 @@ public class GamePane extends JLayeredPane {
 
             @Override
             public void mousePressed(MouseEvent mouseEvent) {
-                if (cPlayer1Tile != null && cPlayer1Tile[0] > -1 && cPlayer1Tile[1] > -1) {
+                assert (cPlayer1Tile != null);
+                if (cPlayer1Tile[0] > -1 && cPlayer1Tile[1] > -1) {
                     int[] copy = cPlayer1Tile.clone();
-                    Ship s = Ship.create(copy[0], copy[1], rotate, Integer.parseInt(gameState.data));
-                    for (Ship ss : player1Ships) {
-                        if (Ship.collisions(ss, s).isEmpty()) {
-                            player1Ships.add(s);
+                    if (gameState.data != null) {
+                        Ship s = Ship.create(copy[0], copy[1], rotate, Integer.parseInt(gameState.data));
+                        int[][] testTiles = s.tiles();
+                        for (Ship ss : player1Ships) {
+                            for (int[] tt : testTiles) {
+                                if (tt[0] >= gridSize || tt[1] >= gridSize) return;
+                                for (int[] t : ss.tiles()) {
+                                    if (t[0] == tt[0] && t[1] == tt[1]) {
+                                        return;
+                                    }
+                                }
+                            }
+                        }
+                        player1Ships.add(s);
+                        gameState = GameState.INIT;
+                        repaint();
+                    } else {
+                        for (Ship s : player1Ships) {
+                            for (int[] t : s.tiles()) {
+                                if (t[0] == cPlayer1Tile[0] && t[1] == cPlayer1Tile[1]) {
+                                    if (!s.marked) {
+                                        s.marked = true;
+                                        repaint();
+                                    }
+                                    return;
+                                }
+                            }
                         }
                     }
-                    gameState = GameState.INIT;
-                    repaint();
                 }
             }
 
@@ -196,8 +221,14 @@ public class GamePane extends JLayeredPane {
             }
         });
 
-        Texture texture = new Texture("/textures/ship.png");
-        bigShip = texture.image.getSubimage(4, 4, 64, 64 * 4);
+        Texture shipTexture = new Texture("/textures/ships.png");
+        shipsImg = new BufferedImage[] {
+                shipTexture.image.getSubimage(65, 155, 43, 43),
+                shipTexture.image.getSubimage(10, 0, 30, 103),
+                shipTexture.image.getSubimage(68, 2, 35, 140),
+                shipTexture.image.getSubimage(109, 2, 52, 209)
+        };
+        markedOverlay = shipTexture.image.getSubimage(8, 108, 32, 32);
 
         InputMap inputMap = getInputMap(WHEN_IN_FOCUSED_WINDOW);
         ActionMap actionMap = getActionMap();
@@ -253,13 +284,16 @@ public class GamePane extends JLayeredPane {
     private void paintShips(Graphics2D g2d, ArrayList<Ship> ships, int offsetX) {
         for (Ship s : ships) {
             AffineTransform t = new AffineTransform();
-            Image im = bigShip.getScaledInstance(pixelPerBlock + 1, s.h.length * (pixelPerBlock + 1), BufferedImage.TYPE_INT_RGB);
+            Image im = shipsImg[s.length() - 1].getScaledInstance(pixelPerBlock, s.length() * (pixelPerBlock + 1), BufferedImage.TYPE_INT_ARGB);
             t.translate(s.x * (pixelPerBlock + 1) + offsetX, s.y * (pixelPerBlock + 1));
             if (s.r) {
                 t.translate(0, pixelPerBlock);
                 t.rotate(Math.toRadians(270));
             }
             g2d.drawImage(im, t, this);
+            if (s.marked) {
+                g2d.drawImage(markedOverlay.getScaledInstance(pixelPerBlock, s.length() * (pixelPerBlock + 1), BufferedImage.TYPE_INT_ARGB), t, this);
+            }
         }
     }
 
@@ -273,8 +307,6 @@ public class GamePane extends JLayeredPane {
         g2d.setColor(Color.black);
         pixelPerBlock = (int) Settings.getValue("blocksize");
         int player2Offset = (gridSize + 1) * (pixelPerBlock + 1);
-        paintShips(g2d, player1Ships, 0);
-        paintShips(g2d, player2Ships, player2Offset);
         for (int i = 0; i < gridSize; i++) {
             for (int j = 0; j < gridSize; j++) {
                 player1Grid[i][j][0] = i * (pixelPerBlock + 1);
@@ -303,6 +335,8 @@ public class GamePane extends JLayeredPane {
                 }
             }
         }
+        paintShips(g2d, player1Ships, 0);
+        paintShips(g2d, player2Ships, player2Offset);
         g2d.dispose();
     }
 }
