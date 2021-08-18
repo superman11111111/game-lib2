@@ -19,6 +19,9 @@ public class GamePane extends JLayeredPane {
     int gridSize = 8;
     boolean rotate = false;
     GameState gameState;
+    Color normalColor;
+    Color hoverColor;
+    Color letterColor;
 
     BufferedImage[] shipsImg;
     BufferedImage markedOverlay;
@@ -104,6 +107,9 @@ public class GamePane extends JLayeredPane {
     }
 
     public GamePane() {
+        normalColor = Color.black;
+        hoverColor = Color.red;
+        letterColor = Color.pink;
         setFocusable(false);
         setLayout(null);
         setOpaque(true);
@@ -115,30 +121,31 @@ public class GamePane extends JLayeredPane {
         player2Ships.add(Ship.create(1, 1, false, 3));
         player2Grid = new int[gridSize][gridSize][2];
 
-        JPanel p = new JPanel();
-        p.setFocusable(false);
-        FlowLayout flowLayout = new FlowLayout();
-        flowLayout.setVgap(0);
-        flowLayout.setAlignment(FlowLayout.LEFT);
-        p.setLayout(flowLayout);
         JSlider slider = new JSlider();
         slider.setFocusable(false);
         slider.setMaximum(((Dimension) Settings.getValue("maindim")).height / gridSize);
         slider.setMinimum(slider.getMaximum() / 2);
         slider.setPaintTicks(true);
         slider.setSnapToTicks(true);
-        JLabel l = new JLabel(String.valueOf(slider.getValue()));
-        l.setFocusable(false);
-        l.setFont(Constants.smallFont);
-        l.setPreferredSize(new Dimension(80, 40));
-        slider.addChangeListener(changeEvent -> l.setText(String.valueOf(slider.getValue())));
-        p.add(l);
+        slider.setMajorTickSpacing(slider.getMaximum() / 10);
+        slider.setPaintLabels(true);
+        FlowLayout fl = new FlowLayout(FlowLayout.LEFT);
+        fl.setVgap(slider.getMaximum() / 2 - 10);
+        JPanel p = new JPanel(fl) {
+            @Override
+            public void paint(Graphics g) {
+                super.paint(g);
+                Graphics2D g2d = (Graphics2D) g.create();
+                g2d.setColor(Color.black);
+                g2d.drawRect(slider.getWidth(), 0, slider.getValue(), slider.getValue());
+                g2d.dispose();
+            }
+        };
+        p.setFocusable(false);
+        slider.addChangeListener(changeEvent -> p.repaint());
+        p.setPreferredSize(new Dimension(400, slider.getMaximum()));
         p.add(slider);
-        try {
-            Settings.addSetting("blocksize", slider::getValue, p);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        Settings.addSetting("blocksize", slider::getValue, p, new Dimension(400, p.getPreferredSize().height));
 
         addMouseMotionListener(new MouseMotionListener() {
             @Override
@@ -193,10 +200,8 @@ public class GamePane extends JLayeredPane {
                         for (Ship s : player1Ships) {
                             for (int[] t : s.tiles()) {
                                 if (t[0] == cPlayer1Tile[0] && t[1] == cPlayer1Tile[1]) {
-                                    if (!s.marked) {
-                                        s.marked = true;
-                                        repaint();
-                                    }
+                                    s.marked = !s.marked;
+                                    repaint();
                                     return;
                                 }
                             }
@@ -304,7 +309,7 @@ public class GamePane extends JLayeredPane {
         g2d.setFont(Constants.smallFont);
         g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
                 RenderingHints.VALUE_ANTIALIAS_ON);
-        g2d.setColor(Color.black);
+        g2d.setColor(normalColor);
         pixelPerBlock = (int) Settings.getValue("blocksize");
         int player2Offset = (gridSize + 1) * (pixelPerBlock + 1);
         for (int i = 0; i < gridSize; i++) {
@@ -314,22 +319,22 @@ public class GamePane extends JLayeredPane {
                 player2Grid[i][j][0] = player1Grid[i][j][0] + player2Offset;
                 player2Grid[i][j][1] = player1Grid[i][j][1];
                 if (cPlayer1Tile[0] == i && cPlayer1Tile[1] == j) {
-                    g2d.setColor(Color.red);
+                    g2d.setColor(hoverColor);
                     if (gameState == GameState.PLACING) {
                         g2d.fillRect(player1Grid[i][j][0], player1Grid[i][j][1], pixelPerBlock + 1, pixelPerBlock + 1);
-                        g2d.setColor(Color.black);
+                        g2d.setColor(letterColor);
                         g2d.drawString(gameState.data, player1Grid[i][j][0] + 1, player1Grid[i][j][1] + pixelPerBlock);
                     } else {
                         g2d.drawRect(player1Grid[i][j][0], player1Grid[i][j][1], pixelPerBlock, pixelPerBlock);
                     }
-                    g2d.setColor(Color.black);
+                    g2d.setColor(normalColor);
                 } else {
                     g2d.drawRect(player1Grid[i][j][0], player1Grid[i][j][1], pixelPerBlock, pixelPerBlock);
                 }
                 if (cPlayer2Tile[0] == i && cPlayer2Tile[1] == j) {
-                    g2d.setColor(Color.green);
+                    g2d.setColor(hoverColor);
                     g2d.drawRect(player2Grid[i][j][0], player2Grid[i][j][1], pixelPerBlock, pixelPerBlock);
-                    g2d.setColor(Color.black);
+                    g2d.setColor(normalColor);
                 } else {
                     g2d.drawRect(player2Grid[i][j][0], player2Grid[i][j][1], pixelPerBlock, pixelPerBlock);
                 }

@@ -75,12 +75,19 @@ public class Client {
     static void start() {
         Settings.addSetting("maindim", new Dimension(1400, 900));
         Settings.addSetting("maincol", new Color(96, 197, 209));
+        Settings.setValue("maincol", new Color(58, 67, 82));
+        Settings.setValue("maincol", new Color(79, 93, 115));
         Settings.addSetting("keybinds", new Settings.Keybind[]{
                 new Settings.Keybind(() -> {
                     System.exit(0);
                     return true;
                 }, KeyEvent.VK_Q),
                 new Settings.Keybind(Client::navigateBack, KeyEvent.VK_R)
+//                new Settings.Keybind(() -> {
+//                    mainFrame.setExtendedState(JFrame.MAXIMIZED_BOTH);
+//                    mainFrame.setUndecorated(true);
+//                    return true;
+//                }, KeyEvent.VK_F11)
         });
 
         mainFrame = new JFrame();

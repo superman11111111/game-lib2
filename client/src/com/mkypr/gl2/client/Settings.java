@@ -7,6 +7,8 @@ import java.util.concurrent.Callable;
 
 public class Settings {
 
+    public static Dimension defaultDim = new Dimension(400, 40);
+
     private static final HashMap<String, Setting> SETTINGS = new HashMap<>();
 
     static class Setting {
@@ -25,7 +27,7 @@ public class Settings {
         }
 
         private static Setting create(String name, Object value, JComponent component, Dimension dimension, Callable<Object> valueGetter) {
-            if (dimension == null) dimension = new Dimension(400, 40);
+            if (dimension == null) dimension = Settings.defaultDim;
             return new Setting(name, value, component, dimension, valueGetter);
         }
     }
@@ -34,8 +36,24 @@ public class Settings {
         SETTINGS.put(key, Setting.create(key, value, component, dimension, valueGetter));
     }
 
-    public static void addSetting(String key, Callable<Object> valueGetter, JComponent component) throws Exception {
-        SETTINGS.put(key, Setting.create(key, valueGetter.call(), component, null, valueGetter));
+    public static void addSetting(String key, Callable<Object> valueGetter, JComponent component) {
+        try {
+            SETTINGS.put(key, Setting.create(key, valueGetter.call(), component, null, valueGetter));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void addSetting(String key, Callable<Object> valueGetter, JComponent component, Dimension dim) {
+        try {
+            SETTINGS.put(key, Setting.create(key, valueGetter.call(), component, dim, valueGetter));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void addSetting(String key, Object value, JComponent component) {
+        SETTINGS.put(key, Setting.create(key, value, component, null, null));
     }
 
     public static void addSetting(String key, Object value) {
@@ -57,6 +75,8 @@ public class Settings {
     public static void setDimension(String key, Dimension dimension) {
         SETTINGS.get(key).dimension = dimension;
     }
+
+    public static void setValueGetter(String key, Callable<Object> valueGetter) { SETTINGS.get(key).valueGetter = valueGetter; }
 
     public static HashMap<String, Setting> allSettings() {
         return SETTINGS;
