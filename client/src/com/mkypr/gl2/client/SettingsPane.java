@@ -11,6 +11,60 @@ public class SettingsPane extends JPanel {
 
     static JComboBox<Settings.Resolution> resolutionBox;
 
+    static class ColorPicker extends JPanel {
+        final JSlider[] sliders = new JSlider[3];
+        Color currentColor = (Color) Settings.getValue("maincol");
+        @Override
+        public void paint(Graphics g) {
+            super.paint(g);
+            Graphics2D g2d = (Graphics2D) g.create();
+            g2d.setColor(currentColor);
+            g2d.fillRect(0, 20, 40, getPreferredSize().height - 40);
+            g2d.dispose();
+        }
+
+        public void updateSliders() {
+            sliders[0].setValue(currentColor.getRed());
+            sliders[1].setValue(currentColor.getGreen());
+            sliders[2].setValue(currentColor.getBlue());
+            repaint();
+        }
+
+        public ColorPicker() {
+            setFocusable(false);
+            setPreferredSize(new Dimension(250, 140));
+            setMinimumSize(getPreferredSize());
+            setMaximumSize(getPreferredSize());
+            for (int i = 0; i < sliders.length; i++) {
+                JPanel p = new JPanel();
+                p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
+                JSlider s = new JSlider(JSlider.VERTICAL, 0, 0xff, 0);
+                JLabel l = new JLabel(String.valueOf(s.getValue()));
+                s.setFocusable(false);
+                s.setPaintTicks(true);
+                s.setSnapToTicks(true);
+                s.setAlignmentX(LEFT_ALIGNMENT);
+                l.setFont(Constants.smallFont);
+                l.setAlignmentX(LEFT_ALIGNMENT);
+                l.setPreferredSize(new Dimension(40, 40));
+                l.setMinimumSize(l.getPreferredSize());
+                l.setMaximumSize(l.getPreferredSize());
+                s.addChangeListener(changeEvent -> {
+                    l.setText(String.valueOf(s.getValue()));
+                    currentColor = new Color(sliders[0].getValue(), sliders[1].getValue(), sliders[2].getValue());
+                    repaint();
+                });
+                s.setPreferredSize(new Dimension(l.getPreferredSize().width, getPreferredSize().height - l.getPreferredSize().height - 8));
+                s.setMinimumSize(s.getPreferredSize());
+                s.setMaximumSize(s.getPreferredSize());
+                p.add(l);
+                p.add(s);
+                add(p);
+                sliders[i] = s;
+            }
+        }
+    }
+
     public SettingsPane() {
         setFocusable(false);
         setLayout(new BoxLayout(this, BoxLayout.PAGE_AXIS));
@@ -28,54 +82,8 @@ public class SettingsPane extends JPanel {
         resolutionBox = new JComboBox<>(resolutions);
         resolutionBox.setFont(Constants.smallFont);
         resolutionBox.setPreferredSize(new Dimension(400, 40));
-        Settings.addSetting("resolutions", resolutions, resolutionBox);
+        Settings.addSetting("resolutions", resolutions, resolutionBox, false);
 
-        class ColorPicker extends JPanel {
-            final JSlider[] sliders = new JSlider[3];
-            Color currentColor = (Color) Settings.getValue("maincol");
-            @Override
-            public void paint(Graphics g) {
-                super.paint(g);
-                Graphics2D g2d = (Graphics2D) g.create();
-                g2d.setColor(currentColor);
-                g2d.fillRect(0, 20, 40, getPreferredSize().height - 40);
-                g2d.dispose();
-            }
-
-            public ColorPicker() {
-                setFocusable(false);
-                setPreferredSize(new Dimension(250, 140));
-                setMinimumSize(getPreferredSize());
-                setMaximumSize(getPreferredSize());
-                for (int i = 0; i < sliders.length; i++) {
-                    JPanel p = new JPanel();
-                    p.setLayout(new BoxLayout(p, BoxLayout.Y_AXIS));
-                    JSlider s = new JSlider(JSlider.VERTICAL, 0, 0xff, 0);
-                    JLabel l = new JLabel(String.valueOf(s.getValue()));
-                    s.setFocusable(false);
-                    s.setPaintTicks(true);
-                    s.setSnapToTicks(true);
-                    s.setAlignmentX(LEFT_ALIGNMENT);
-                    l.setFont(Constants.smallFont);
-                    l.setAlignmentX(LEFT_ALIGNMENT);
-                    l.setPreferredSize(new Dimension(40, 40));
-                    l.setMinimumSize(l.getPreferredSize());
-                    l.setMaximumSize(l.getPreferredSize());
-                    s.addChangeListener(changeEvent -> {
-                        l.setText(String.valueOf(s.getValue()));
-                        currentColor = new Color(sliders[0].getValue(), sliders[1].getValue(), sliders[2].getValue());
-                        repaint();
-                    });
-                    s.setPreferredSize(new Dimension(l.getPreferredSize().width, getPreferredSize().height - l.getPreferredSize().height - 8));
-                    s.setMinimumSize(s.getPreferredSize());
-                    s.setMaximumSize(s.getPreferredSize());
-                    p.add(l);
-                    p.add(s);
-                    add(p);
-                    sliders[i] = s;
-                }
-            }
-        }
         ColorPicker colorPicker = new ColorPicker();
         Settings.setComponent("maincol", colorPicker);
         Settings.setDimension("maincol", new Dimension(400, 140));
@@ -88,7 +96,6 @@ public class SettingsPane extends JPanel {
         for (String k : Settings.allSettings().keySet()) {
             Settings.Setting setting = Settings.allSettings().get(k);
             if (setting.component == null) continue;
-            System.out.println(setting.name);
             JPanel settingsItem = new JPanel();
             settingsItem.setFocusable(false);
             settingsItem.setAlignmentX(Component.CENTER_ALIGNMENT);

@@ -145,7 +145,7 @@ public class GamePane extends JLayeredPane {
         slider.addChangeListener(changeEvent -> p.repaint());
         p.setPreferredSize(new Dimension(400, slider.getMaximum()));
         p.add(slider);
-        Settings.addSetting("blocksize", slider::getValue, p, new Dimension(400, p.getPreferredSize().height));
+        Settings.addSetting("blocksize", slider::getValue, p, new Dimension(400, p.getPreferredSize().height), true);
 
         addMouseMotionListener(new MouseMotionListener() {
             @Override

@@ -5,6 +5,7 @@ import com.mkypr.gl2.middleware.Constants;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
+import java.io.IOException;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
@@ -44,6 +45,9 @@ public class Client {
         Color color = (Color) Settings.getValue("maincol");
         mainFrame.getContentPane().setBackground(color);
         btnPanel.setBackground(color);
+        SettingsPane.ColorPicker colorPicker = (SettingsPane.ColorPicker) Settings.getComponent("maincol");
+        colorPicker.currentColor = color;
+        colorPicker.updateSliders();
         for (Component c : btnPanel.getComponents()) {
             c.setBackground(color);
         }
@@ -73,22 +77,14 @@ public class Client {
     }
 
     static void start() {
-        Settings.addSetting("maindim", new Dimension(1400, 900));
-        Settings.addSetting("maincol", new Color(96, 197, 209));
+        Settings.addSetting("maindim", new Dimension(1400, 900), true);
+        Settings.addSetting("maincol", new Color(96, 197, 209), true);
         Settings.setValue("maincol", new Color(58, 67, 82));
         Settings.setValue("maincol", new Color(79, 93, 115));
         Settings.addSetting("keybinds", new Settings.Keybind[]{
-                new Settings.Keybind(() -> {
-                    System.exit(0);
-                    return true;
-                }, KeyEvent.VK_Q),
-                new Settings.Keybind(Client::navigateBack, KeyEvent.VK_R)
-//                new Settings.Keybind(() -> {
-//                    mainFrame.setExtendedState(JFrame.MAXIMIZED_BOTH);
-//                    mainFrame.setUndecorated(true);
-//                    return true;
-//                }, KeyEvent.VK_F11)
-        });
+                new Settings.Keybind("close", KeyEvent.VK_Q),
+                new Settings.Keybind("navigateBack", KeyEvent.VK_R)
+        }, true);
 
         mainFrame = new JFrame();
         mainFrame.setTitle("GameClient");
@@ -105,7 +101,7 @@ public class Client {
         builder.put("settings", actionEvent -> {
             navigateTo(SETTINGSPANEL);
         });
-        builder.put("quit", actionEvent -> System.exit(0));
+        builder.put("quit", actionEvent -> close());
 
         JPanel menu = new JPanel();
         menu.setFocusable(false);
@@ -172,7 +168,7 @@ public class Client {
                 for (Settings.Keybind keybind : (Settings.Keybind[]) Settings.getValue("keybinds")) {
                     if (keyEvent.getKeyCode() == keybind.key) {
                         try {
-                            if (keybind.action.call()) return;
+                            if (keybind.getCallable().call()) return;
                         } catch (Exception e) {
                             e.printStackTrace();
                         }
@@ -186,10 +182,26 @@ public class Client {
             }
         });
 
+        try {
+            String settingsRaw = Persistence.readFromInputStream(Persistence.open("settings.txt"));
+            System.out.println(settingsRaw);
+            Settings.deserialize(settingsRaw);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
         Client.updateSize();
         Client.updateColor();
 
         mainFrame.setVisible(true);
+
+
+    }
+
+    public static boolean close() {
+        Persistence.write("settings.txt", Settings.serialize());
+        System.exit(0);
+        return true;
     }
 
 }
